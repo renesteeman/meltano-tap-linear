@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "meltano-tap-linear"
+version = "0.1.0"
+description = ""
+authors = ["René Steeman <rene@in-parallel.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
