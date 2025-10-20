@@ -21,34 +21,31 @@ class TapNotion(Tap):
 
     name = "tap-notion"
 
-    # TODO: Update this section with the actual config values you expect:
+    # Notion configuration
     config_jsonschema = th.PropertiesList(
         th.Property(
             "auth_token",
             th.StringType(nullable=False),
             required=True,
-            secret=True,  # Flag config as protected.
+            secret=True,  # Integration token from Notion
             title="Auth Token",
-            description="The token to authenticate against the API service",
-        ),
-        th.Property(
-            "project_ids",
-            th.ArrayType(th.StringType(nullable=False), nullable=False),
-            required=True,
-            title="Project IDs",
-            description="Project IDs to replicate",
+            description="The Notion integration token (starts with 'secret_').",
         ),
         th.Property(
             "start_date",
             th.DateTimeType(nullable=True),
-            description="The earliest record date to sync",
+            description="The earliest record date to sync (unused by most Notion endpoints).",
         ),
         th.Property(
-            "api_url",
-            th.StringType(nullable=False),
-            title="API URL",
-            default="https://api.mysample.com",
-            description="The url for the API service",
+            "notion_version",
+            th.StringType(nullable=True),
+            title="Notion API Version",
+            description="Override the Notion-Version header (default '2022-06-28').",
+        ),
+        th.Property(
+            "page_size",
+            th.IntegerType(nullable=True),
+            description="Items per page for list/search endpoints (max 100).",
         ),
         th.Property(
             "user_agent",
@@ -57,6 +54,16 @@ class TapNotion(Tap):
                 "A custom User-Agent header to send with each request. Default is "
                 "'<tap_name>/<tap_version>'"
             ),
+        ),
+        th.Property(
+            "search_filter_object",
+            th.StringType(nullable=True),
+            description="Optional search filter object type: 'page' or 'database'.",
+        ),
+        th.Property(
+            "search_query",
+            th.StringType(nullable=True),
+            description="Optional search query string.",
         ),
     ).to_dict()
 
@@ -68,8 +75,8 @@ class TapNotion(Tap):
             A list of discovered streams.
         """
         return [
-            streams.GroupsStream(self),
             streams.UsersStream(self),
+            streams.SearchStream(self),
         ]
 
 

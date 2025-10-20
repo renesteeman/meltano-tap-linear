@@ -27,42 +27,40 @@ SCHEMAS_DIR = resources.files(__package__) / "schemas"
 
 
 class NotionStream(RESTStream):
-    """Notion stream class."""
+    """Base stream for the Notion API.
 
-    # Update this value if necessary or override `parse_response`.
-    records_jsonpath = "$[*]"
+    Implements Notion-specific defaults for base URL, pagination, and headers.
+    """
 
-    # Update this value if necessary or override `get_new_paginator`.
-    next_page_token_jsonpath = "$.next_page"  # noqa: S105
+    # Most list endpoints return an envelope with `results` and `next_cursor`.
+    records_jsonpath = "$.results[*]"
+    next_page_token_jsonpath = "$.next_cursor"  # noqa: S105
 
     @override
     @property
     def url_base(self) -> str:
-        """Return the API URL root, configurable via tap settings."""
-        # TODO: hardcode a value here, or retrieve it from self.config
-        return "https://api.mysample.com"
+        """Return the Notion API base URL."""
+        # Notion API base is fixed; no trailing slash here.
+        return "https://api.notion.com/v1"
 
     @override
     @property
     def authenticator(self) -> BearerTokenAuthenticator:
-        """Return a new authenticator object.
-
-        Returns:
-            An authenticator instance.
-        """
+        """Return a new authenticator object using the Notion integration token."""
         return BearerTokenAuthenticator(token=self.config.get("auth_token", ""))
 
     @property
     @override
     def http_headers(self) -> dict:
-        """Return the http headers needed.
-
-        Returns:
-            A dictionary of HTTP headers.
-        """
-        # If not using an authenticator, you may also provide inline auth headers:
-        # headers["Private-Token"] = self.config.get("auth_token")  # noqa: ERA001
-        return {}
+        """Return the HTTP headers including Notion-Version and optional UA."""
+        headers: dict[str, str] = {}
+        notion_version = self.config.get("notion_version") or "2022-06-28"
+        headers["Notion-Version"] = notion_version
+        # Optional custom User-Agent
+        user_agent = self.config.get("user_agent")
+        if user_agent:
+            headers["User-Agent"] = user_agent
+        return headers
 
     @override
     def get_new_paginator(self) -> BaseAPIPaginator | None:
@@ -87,21 +85,21 @@ class NotionStream(RESTStream):
         context: Context | None,
         next_page_token: t.Any | None,
     ) -> dict[str, t.Any]:
-        """Return a dictionary of values to be used in URL parameterization.
+        """Return URL parameters for Notion list endpoints.
 
         Args:
             context: The stream context.
-            next_page_token: The next page index or value.
+            next_page_token: The next cursor value.
 
         Returns:
             A dictionary of URL query parameters.
         """
-        params: dict = {}
+        params: dict[str, t.Any] = {}
         if next_page_token:
-            params["page"] = next_page_token
-        if self.replication_key:
-            params["sort"] = "asc"
-            params["order_by"] = self.replication_key
+            params["start_cursor"] = next_page_token
+        page_size = self.config.get("page_size")
+        if page_size:
+            params["page_size"] = page_size
         return params
 
     @override
