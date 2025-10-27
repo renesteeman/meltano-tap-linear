@@ -37,7 +37,7 @@ plugins:
     - name: start_date
       kind: date_iso8601
       label: Start Date
-      description: Initial date to start extracting data from
+      description: Initial cutoff for incremental sync on the 'search' stream; client-side filter by last_edited_time. Subsequent runs use saved state.
 
     settings_group_validation:
     - [auth_token]

@@ -34,7 +34,10 @@ class TapNotion(Tap):
         th.Property(
             "start_date",
             th.DateTimeType(nullable=True),
-            description="The earliest record date to sync (unused by most Notion endpoints).",
+            description=(
+                "Initial cutoff timestamp for incremental sync on the 'search' stream. "
+                "Client-side filter using last_edited_time; subsequent runs use saved state."
+            ),
         ),
         th.Property(
             "notion_version",

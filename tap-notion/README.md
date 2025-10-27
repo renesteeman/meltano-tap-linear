@@ -2,48 +2,55 @@
 
 `tap-notion` is a Singer tap for Notion.
 
-Built with the [Meltano Tap SDK](https://sdk.meltano.com) for Singer Taps.
-
-<!--
-
-Developer TODO: Update the below as needed to correctly describe the install procedure. For instance, if you do not have a PyPI repo, or if you want users to directly install from your git repo, you can modify this step as appropriate.
+Built with the Meltano Tap SDK for Singer Taps.
 
 ## Installation
 
-Install from PyPI:
+Install from GitHub by adding
 
-```bash
-uv tool install tap-notion
-```
+  - name: tap-notion
+    namespace: tap_notion
+    pip_url: git+https://github.com/renesteeman/meltano-tap-notion@main#subdirectory=tap-notion
+    executable: tap-notion
+    capabilities:
+      - discover
+      - catalog
+      - state
+    settings:
+      - name: auth_token
+        kind: password
+        sensitive: true
 
-Install from GitHub:
-
-```bash
-uv tool install git+https://github.com/ORG_NAME/tap-notion.git@main
-```
-
--->
+to meltano.yml
 
 ## Configuration
 
 ### Accepted Config Options
 
-<!--
-Developer TODO: Provide a list of config options accepted by the tap.
-
-This section can be created by copy-pasting the CLI output from:
-
-```
-tap-notion --about --format=markdown
-```
--->
-
 A full list of supported settings and capabilities for this
 tap is available by running:
 
-```bash
+```
 tap-notion --about
 ```
+
+Key settings used by this tap:
+- auth_token (required)
+  - Notion integration token used for Bearer auth.
+- notion_version (optional)
+  - Overrides the Notion-Version header. Defaults to 2022-06-28.
+- page_size (optional)
+  - Controls page size for /users (GET) and /search (POST). Max 100.
+- user_agent (optional)
+  - Custom User-Agent header value.
+- search_filter_object (optional)
+  - Adds a simple object filter to /search: "page" or "database".
+- search_query (optional)
+  - Adds a query string to /search requests.
+- start_date (optional)
+  - Initial cutoff for incremental sync on the search stream only. The tap sorts search results by last_edited_time (newest first) and filters client-side to drop rows older than this timestamp. On subsequent runs, Singer state supersedes start_date.
+
+Accepted formats for start_date include ISO8601/RFC3339 timestamps like "2024-01-01T00:00:00Z" and date-only strings like "2024-01-01" (treated as midnight UTC).
 
 ### Configure using environment variables
 
@@ -53,20 +60,33 @@ environment variable is set either in the terminal context or in the `.env` file
 
 ### Source Authentication and Authorization
 
-<!--
-Developer TODO: If your tap requires special access on the source system, or any special authentication requirements, provide those here.
--->
-
 ## Usage
 
-You can easily run `tap-notion` by itself or in a pipeline using [Meltano](https://meltano.com/).
+You can easily run `tap-notion` by itself or in a pipeline using Meltano.
 
 ### Executing the Tap Directly
 
-```bash
+```
 tap-notion --version
 tap-notion --help
 tap-notion --config CONFIG --discover > ./catalog.json
+```
+
+To run just the search stream incrementally with a start_date:
+
+```
+tap-notion \
+  --config config.json \
+  --catalog <(tap-notion --config config.json --discover | jq '.streams |= map(select(.tap_stream_id == "search"))')
+```
+
+Where config.json contains:
+
+```
+{
+  "auth_token": "secret_xxx",
+  "start_date": "2024-01-01T00:00:00Z"
+}
 ```
 
 ## Developer Resources
@@ -78,9 +98,9 @@ Follow these instructions to contribute to this project.
 Prerequisites:
 
 - Python 3.10+
-- [uv](https://docs.astral.sh/uv/)
+- uv
 
-```bash
+```
 uv sync
 ```
 
@@ -89,41 +109,17 @@ uv sync
 Create tests within the `tests` subfolder and
 then run:
 
-```bash
+```
 uv run pytest
 ```
 
 You can also test the `tap-notion` CLI interface directly using `uv run`:
 
-```bash
-uv run tap-notion --help
 ```
-
-### Testing with [Meltano](https://www.meltano.com)
-
-_**Note:** This tap will work in any Singer environment and does not require Meltano.
-Examples here are for convenience and to streamline end-to-end orchestration scenarios._
-
-<!--
-Developer TODO:
-Your project comes with a custom `meltano.yml` project file already created. Open the `meltano.yml` and follow any "TODO" items listed in
-the file.
--->
-
-Use Meltano to run an EL pipeline:
-
-```bash
-# Install meltano
-uv tool install meltano
-
-# Test invocation
-meltano invoke tap-notion --version
-
-# Run a test EL pipeline
-meltano run tap-notion target-jsonl
+uv run tap-notion --help
 ```
 
 ### SDK Dev Guide
 
-See the [dev guide](https://sdk.meltano.com/en/latest/dev_guide.html) for more instructions on how to use the SDK to
+See the dev guide for more instructions on how to use the SDK to
 develop your own taps and targets.
