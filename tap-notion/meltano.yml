@@ -27,10 +27,12 @@ plugins:
       sensitive: true
 
     - name: notion_version
+      kind: string
       label: Notion API Version
       description: Optional Notion-Version header value (default '2022-06-28')
 
     - name: page_size
+      kind: integer
       label: Page Size
       description: Items per page for list/search endpoints (max 100)
 
