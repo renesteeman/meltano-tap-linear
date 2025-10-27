@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 pytest = "^8.4.2"
+singer-sdk = "^0.52.2"
 
 
 [build-system]
