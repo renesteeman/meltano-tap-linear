@@ -85,9 +85,9 @@ class SearchStream(NotionStream):
         query = self.config.get("search_query")
         if query:
             payload["query"] = query
-        page_size = self.config.get("page_size")
-        if page_size:
-            payload["page_size"] = page_size
+        # Default to max page size for speed
+        page_size = self.config.get("page_size") or 100
+        payload["page_size"] = page_size
         # Ensure newest-first ordering to align with incremental cutoff logic
         payload["sort"] = {"timestamp": "last_edited_time", "direction": "descending"}
         return payload or {}
@@ -127,6 +127,32 @@ class SearchStream(NotionStream):
         except Exception:
             bookmark = None
         return bookmark or self._config_start_date()
+
+    def get_next_page_token(self, response, previous_token):  # type: ignore[override]
+        """Use next_cursor but short-circuit when past incremental cutoff.
+
+        Because results are sorted newest→oldest by last_edited_time, once any
+        item in the current page is older than the cutoff, we stop paginating.
+        """
+        token = (response.json() or {}).get("next_cursor")
+        cutoff = self._effective_cutoff(context=None)
+        if not cutoff or not token:
+            return token
+        results = (response.json() or {}).get("results", [])
+        min_ts = None
+        for r in results:
+            ts = r.get("last_edited_time")
+            if not ts:
+                continue
+            try:
+                dt = self._parse_iso8601(ts)
+            except Exception:
+                continue
+            if min_ts is None or dt < min_ts:
+                min_ts = dt
+        if min_ts is not None and min_ts < cutoff:
+            return None
+        return token
 
     def post_process(self, row: dict, context: dict | None = None) -> dict | None:
         # Apply base transformations if any
@@ -199,7 +225,7 @@ class PageDetailsStream(NotionStream):
 
     name = "pages"
     path = "/pages/{page_id}"
-    parent_stream_type = PagesIndexStream
+    parent_stream_type = SearchStream
     primary_keys: t.ClassVar[list[str]] = ["id"]
 
     def parse_response(self, response):  # type: ignore[override]
@@ -224,7 +250,7 @@ class PageBlocksStream(NotionStream):
 
     name = "page_blocks"
     path = "/blocks/{page_id}/children"
-    parent_stream_type = PagesIndexStream
+    parent_stream_type = SearchStream
     primary_keys: t.ClassVar[list[str]] = ["id"]
 
     schema = th.PropertiesList(

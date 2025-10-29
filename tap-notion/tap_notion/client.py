@@ -99,9 +99,9 @@ class NotionStream(RESTStream):
         if getattr(self, "rest_method", "GET").upper() != "POST":
             if next_page_token:
                 params["start_cursor"] = next_page_token
-            page_size = self.config.get("page_size")
-            if page_size:
-                params["page_size"] = page_size
+            # Default to max page size for speed, unless explicitly provided
+            page_size = self.config.get("page_size") or 100
+            params["page_size"] = page_size
         return params
 
     @override
