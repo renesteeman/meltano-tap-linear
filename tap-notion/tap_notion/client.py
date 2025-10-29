@@ -95,11 +95,13 @@ class NotionStream(RESTStream):
             A dictionary of URL query parameters.
         """
         params: dict[str, t.Any] = {}
-        if next_page_token:
-            params["start_cursor"] = next_page_token
-        page_size = self.config.get("page_size")
-        if page_size:
-            params["page_size"] = page_size
+        # For POST endpoints (e.g., /v1/search), Notion expects cursor & page_size in the JSON body
+        if getattr(self, "rest_method", "GET").upper() != "POST":
+            if next_page_token:
+                params["start_cursor"] = next_page_token
+            page_size = self.config.get("page_size")
+            if page_size:
+                params["page_size"] = page_size
         return params
 
     @override
