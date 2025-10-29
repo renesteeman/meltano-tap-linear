@@ -89,6 +89,20 @@ Where config.json contains:
 }
 ```
 
+## How it works
+
+New to Meltano or Singer? Start with ARCHITECTURE.md for a friendly overview of how this tap is structured, how streams relate to each other, and how configuration, pagination, and state work.
+
+- Read the guide: ./ARCHITECTURE.md
+
+### Streams provided
+
+- users (GET /v1/users)
+- search (POST /v1/search) — incremental on last_edited_time with start_date/state cutoff
+- pages (GET /v1/pages/{page_id}) — page metadata for each page context
+- page_blocks (GET /v1/blocks/{page_id}/children) — top-level blocks for each page
+- block_children — recursively traverse all blocks for each page
+
 ## Developer Resources
 
 Follow these instructions to contribute to this project.
@@ -98,26 +112,61 @@ Follow these instructions to contribute to this project.
 Prerequisites:
 
 - Python 3.10+
-- uv
+- uv (optional)
+
+You can develop with standard Python venv + pip, or use uv for faster installs.
+
+Option A — Standard Python (no uv):
+
+```
+python -m venv .venv
+. .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m pip install -U pip
+pip install -e .[test,typing]
+```
+
+Option B — Using uv (optional):
 
 ```
 uv sync
 ```
 
+Note about Meltano: this repo’s `meltano.yml` sets `venv.backend: uv`, so Meltano will use uv by default. If you prefer not to use uv with Meltano, change `meltano.yml` to:
+
+```
+venv:
+  backend: venv
+```
+
 ### Create and Run Tests
 
-Create tests within the `tests` subfolder and
-then run:
+With standard Python (no uv):
+
+```
+pytest
+```
+
+With uv:
 
 ```
 uv run pytest
 ```
 
-You can also test the `tap-notion` CLI interface directly using `uv run`:
+You can also test the `tap-notion` CLI:
 
-```
-uv run tap-notion --help
-```
+- Standard Python:
+  
+  ```
+  tap-notion --help
+  ```
+
+- With uv:
+  
+  ```
+  uv run tap-notion --help
+  ```
+
+Tox note: the project’s `pyproject.toml` uses `tox-uv` and `uv-venv-lock-runner` by default. If you want tox without uv, remove `tox-uv` from `requires` and the custom `runner` line.
 
 ### SDK Dev Guide
 

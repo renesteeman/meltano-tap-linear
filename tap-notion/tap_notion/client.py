@@ -1,4 +1,20 @@
-"""REST client handling, including NotionStream base class."""
+"""REST client handling and NotionStream base class.
+
+This module defines the NotionStream class, a small specialization of the
+Singer SDK's RESTStream tailored to the Notion API. It centralizes the
+common behaviors for all streams in this tap:
+
+- Base URL and HTTP headers (including Notion-Version and optional User-Agent).
+- Authentication using a Notion integration token (Bearer auth).
+- Default pagination and record extraction using the standard Notion envelope
+  shape: `{ "results": [...], "next_cursor": "..." }`.
+- Query parameter handling for GET endpoints, with page_size and start_cursor.
+- Response parsing via JSONPath to yield individual records.
+
+Downstream stream classes in `streams.py` inherit from NotionStream and only
+provide endpoint-specific details like `path`, `rest_method`, schema, and any
+special payload or child-context logic.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +38,7 @@ if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
 
 
-# TODO: Delete this is if not using json files for schema definition
+# Directory for optional JSON schema files (not used in this tap by default)
 SCHEMAS_DIR = resources.files(__package__) / "schemas"
 
 
@@ -121,7 +137,7 @@ class NotionStream(RESTStream):
         Returns:
             A dictionary with the JSON body for a POST requests.
         """
-        # TODO: Delete this method if no payload is required. (Most REST APIs.)
+        # Default: No payload. Override in POST-based streams to provide a body.
         return None
 
     @override

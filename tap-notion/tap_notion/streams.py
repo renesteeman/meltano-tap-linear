@@ -1,4 +1,15 @@
-"""Stream type classes for tap-notion."""
+"""Stream classes implementing Notion API endpoints.
+
+This module contains the concrete stream implementations for the tap. All
+streams inherit from `NotionStream` (see client.py) which handles base URL,
+headers, authentication, and default pagination on Notion's standard envelope.
+
+Use this file to understand:
+- Which endpoints are covered and how they map to streams.
+- How parent/child stream contexts propagate `page_id`/`block_id`.
+- Where incremental cutoffs are applied (SearchStream) and where full traversal
+  is performed (BlockChildrenStream).
+"""
 
 from __future__ import annotations
 
@@ -14,7 +25,15 @@ SCHEMAS_DIR = resources.files(__package__) / "schemas"
 
 
 class UsersStream(NotionStream):
-    """Notion users stream (GET /v1/users)."""
+    """Notion users stream (GET /v1/users).
+
+    - Endpoint: GET /v1/users
+    - Pagination: Standard Notion envelope with `results` and `next_cursor`.
+    - Schema: Basic user profile fields plus `person`/`bot` variants.
+    - Keys: Primary key is `id`.
+
+    Usage: This stream is independent and does not require any parent context.
+    """
 
     name = "users"
     path = "/users"
@@ -74,6 +93,13 @@ class SearchStream(NotionStream):
         context: dict | None,
         next_page_token: t.Any | None,
     ) -> dict | None:
+        """Compose the POST body for Notion search.
+
+        Notion expects cursor and page_size in the JSON body for POST endpoints.
+        This method also applies optional filter and query settings from config
+        and ensures results are sorted newest-first to align with the
+        incremental cutoff logic used by this stream.
+        """
         payload: dict[str, t.Any] = {}
         if next_page_token:
             payload["start_cursor"] = next_page_token
@@ -305,8 +331,17 @@ class PageBlocksStream(NotionStream):
         return row
 
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
+        """Emit child context for blocks that have nested children.
+
+        This enables BlockChildrenStream (or other child block streams) to
+        continue traversal from the current block. We also propagate the
+        originating `page_id` for lineage.
+        """
         if record.get("has_children"):
-            return {"block_id": record.get("id"), "page_id": context.get("page_id") if context else None}
+            return {
+                "block_id": record.get("id"),
+                "page_id": context.get("page_id") if context else None,
+            }
         return None
 
 
@@ -326,6 +361,11 @@ class BlockChildrenStream(NotionStream):
     schema = PageBlocksStream.schema
 
     def get_records(self, context: dict | None) -> t.Iterable[dict]:  # type: ignore[override]
+        """Entry point used by the SDK to produce records.
+
+        This stream expects a `page_id` in the context (from a parent stream)
+        and will recursively traverse all blocks for that page.
+        """
         if not context or "page_id" not in context:
             return []
         page_id = context["page_id"]
