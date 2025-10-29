@@ -80,7 +80,6 @@ class TapNotion(Tap):
         return [
             streams.UsersStream(self),
             streams.SearchStream(self),
-            # New streams to extract full pages beyond search results only
             streams.PageDetailsStream(self),
             streams.PageBlocksStream(self),
         ]

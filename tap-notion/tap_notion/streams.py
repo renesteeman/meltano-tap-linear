@@ -228,6 +228,13 @@ class PageDetailsStream(NotionStream):
     parent_stream_type = SearchStream
     primary_keys: t.ClassVar[list[str]] = ["id"]
 
+    def get_url_params(self, context, next_page_token):  # type: ignore[override]
+        """No query params for this endpoint.
+
+        Notion rejects `page_size` and `start_cursor` on GET /v1/pages/{page_id}.
+        """
+        return {}
+
     def parse_response(self, response):  # type: ignore[override]
         yield response.json()
 
