@@ -79,23 +79,6 @@ class NotionStream(RESTStream):
         return headers
 
     @override
-    def get_new_paginator(self) -> BaseAPIPaginator | None:
-        """Create a new pagination helper instance.
-
-        If the source API can make use of the `next_page_token_jsonpath`
-        attribute, or it contains a `X-Next-Page` header in the response
-        then you can remove this method.
-
-        If you need custom pagination that uses page numbers, "next" links, or
-        other approaches, please read the guide: https://sdk.meltano.com/en/v0.25.0/guides/pagination-classes.html.
-
-        Returns:
-            A pagination helper instance, or ``None`` to indicate pagination
-            is not supported.
-        """
-        return super().get_new_paginator()
-
-    @override
     def get_url_params(
         self,
         context: Context | None,
@@ -103,9 +86,22 @@ class NotionStream(RESTStream):
     ) -> dict[str, t.Any]:
         """Return URL parameters for Notion list endpoints.
 
+        This method builds the query parameters (the part after `?` in a URL) for API
+        requests, handling pagination and page size.
+
+        How it works:
+        1. The SDK calls this automatically before each request
+        2. For GET requests, adds pagination params to the URL:
+           - First request: ?page_size=100
+           - Subsequent requests: ?page_size=100&start_cursor=abc123
+        3. For POST requests (like /v1/search), returns empty params dict since
+           Notion expects cursor & page_size in the JSON body instead
+        4. The SDK loops through pages until next_cursor is null in the response
+
         Args:
             context: The stream context.
-            next_page_token: The next cursor value.
+            next_page_token: The next cursor value from the previous response, or None
+                for the first request.
 
         Returns:
             A dictionary of URL query parameters.
@@ -144,13 +140,26 @@ class NotionStream(RESTStream):
     def parse_response(self, response: requests.Response) -> t.Iterable[dict]:
         """Parse the response and return an iterator of result records.
 
+        This method extracts individual records from the API response and yields them
+        one at a time.
+
+        How it works:
+        1. Called automatically by the SDK after receiving an HTTP response
+        2. Converts the response body to JSON (using Decimal for precise numbers)
+        3. Applies the records_jsonpath ("$.results[*]") to extract items from the
+           results array
+        4. Yields each record individually (memory efficient for large datasets)
+
+        Example:
+            API response: {"results": [{"id": "1"}, {"id": "2"}], "next_cursor": "abc"}
+            This method yields: {"id": "1"}, then {"id": "2"}
+
         Args:
             response: The HTTP ``requests.Response`` object.
 
         Yields:
             Each record from the source.
         """
-        # TODO: Parse response body and return a set of records.
         yield from extract_jsonpath(
             self.records_jsonpath,
             input=response.json(parse_float=decimal.Decimal),
@@ -174,5 +183,4 @@ class NotionStream(RESTStream):
         Returns:
             The updated record dictionary, or ``None`` to skip the record.
         """
-        # TODO: Delete this method if not needed.
         return row
